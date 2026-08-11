@@ -136,7 +136,12 @@ export class Address6 {
       }
 
       address = address.replace(constants6.RE_SUBNET_STRING, '');
-    } else if (/\//.test(address)) {
+    }
+
+    // RE_SUBNET_STRING anchors on the end of the address, so it strips only
+    // the trailing suffix. A second one left behind (`::/0/1`) is malformed
+    // and must be rejected rather than parsed as an address group.
+    if (/\//.test(address)) {
       throw new AddressError('Invalid subnet mask.');
     }
 

@@ -1,5 +1,6 @@
 import chai from 'chai';
 import { Address6 } from '../src/ipv6';
+import { AddressError } from '../src/address-error';
 import { BigInteger } from 'jsbn';
 import { sprintf } from 'sprintf-js';
 import { v6 } from '../src/ip-address';
@@ -561,6 +562,48 @@ describe('v6', () => {
             '<span class="zero">0</span></span>'
         );
       });
+    });
+  });
+
+  describe('an address with more than one subnet suffix', () => {
+    // RE_SUBNET_STRING anchors on the end of the address, so it strips only
+    // the trailing suffix. Anything left over is malformed and must be
+    // rejected rather than parsed as an address group, which produced a NaN
+    // group and a correctForm() of '::NaN'. Address4 already rejects the
+    // equivalent '10.0.0.1/8/16'.
+    const malformed = ['::/0/1', '::1/64/8', 'fe80::/10/64', '2001:db8::1/32/16'];
+
+    it('is rejected by isValid', () => {
+      malformed.forEach((notation) => {
+        should.equal(Address6.isValid(notation), false, notation);
+      });
+    });
+
+    it('throws from the constructor', () => {
+      malformed.forEach((notation) => {
+        should.Throw(() => new Address6(notation), AddressError, undefined, notation);
+      });
+    });
+
+    it('never leaves NaN in a parsed group', () => {
+      malformed.forEach((notation) => {
+        try {
+          const address = new Address6(notation);
+          address.parsedAddress.forEach((group) => {
+            should.equal(group.includes('NaN'), false, `${notation} -> ${group}`);
+          });
+          should.equal(address.correctForm().includes('NaN'), false, notation);
+        } catch {
+          // Throwing is the expected outcome.
+        }
+      });
+    });
+
+    it('still accepts a single suffix', () => {
+      should.equal(new Address6('::/0').subnetMask, 0);
+      should.equal(new Address6('::1/128').subnetMask, 128);
+      should.equal(new Address6('fe80::/10').subnetMask, 10);
+      should.equal(new Address6('fe80::1%eth0/64').subnetMask, 64);
     });
   });
 });
