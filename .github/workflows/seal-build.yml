@@ -1,0 +1,33 @@
+name: Seal Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20.7", "19.9", "18.18", "17.9", "16.20"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Pin npm registry to release-time time machine
+        run: npm config set registry https://:2023-09-25T17%3A53%3A13.708000Z@time-machines-npm.sealsecurity.io/
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Pack
+        if: matrix.node-version == '20.7'
+        run: npm pack
+      - name: Upload tarball
+        if: matrix.node-version == '20.7'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: ip-address-9.0.5.tgz
+          if-no-files-found: error
